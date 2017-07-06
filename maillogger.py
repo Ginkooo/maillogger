@@ -4,45 +4,56 @@ import socketserver
 import os
 import datetime
 
-CONFIG_FILE = '/home/pczajka/.config/maillogger/maillogger'
+CONFIG_FILE = '/home/ginkooo/.config/maillogger/maillogger.conf'
 
 def get_config():
     ret = {}
     with open(CONFIG_FILE, 'r') as f:
-        for line in f:
+        for i, line in enumerate(f):
             line = line.strip()
-            if line[0] == b'#':
-                continue
-            try:
-                line = line.decode('utf-8')
-            except:
-                line = line.decode('ascii')
             if not line:
                 continue
-            key, value = line.split('=')
+            if line[0] == '#':
+                continue
+            try:
+                key, value = line.split('=')
+            except:
+                print('Bad config line on line ' + str(i))
+                exit()
             key = key.lower()
             ret[key] = value.strip().strip("\"'")
+    return ret
 
 config = get_config()
+print(config)
 
 try:
     logdir = config['logdir']
-    if not os.path.isdir(logdir()):
-        raise RuntimeError('')
 except:
-    print('You have to specify valid logdir in your config file, example:\nlogdir=/var/log/maillogger')
+    print('You have to provide logdir config')
+    exit()
+if not os.path.isdir(logdir):
+    print('Bad logdir path')
     exit()
 os.chdir(logdir)
 
 def handle_msg(msg, ip):
     if type(ip) == 'bytes':
         ip = ip.decode('utf-8')
-    filename = datetime.datetime.now().strftime('%Y-%m-%d') + '.log'
-    to_write = ip + ' ' + msg + '\n'
-    with open(filename, 'a') as f:
-        f.write(to_write)
+    now = datetime.datetime.now()
+    filename = now.strftime('%Y-%m-%d') + '.log'
+    to_write = now.strftime('%H:%M') + ' ' + ip + ' ' + msg + '\n'
+    try:
+        with open(filename, 'a') as f:
+            f.write(to_write)
+    except:
+        print('Cound not write to file')
+        response = 'ERR Could not write to file'
+    response = 'OK'
+    return response + '\r\n'
 
-class ConnectionHandler:
+
+class ConnectionHandler(socketserver.BaseRequestHandler):
     def handle(self):
         self.data = self.request.recv(2048).strip()
         try:
@@ -52,7 +63,10 @@ class ConnectionHandler:
         try:
             self.request.sendall(response)
         except:
-            self.request.sendall(response.encode('utf-8'))
+            try:
+                self.request.sendall(response.encode('utf-8'))
+            except:
+                self.request.sendall(response.encode('ascii'))
 
 if __name__ == '__main__':
     try:
