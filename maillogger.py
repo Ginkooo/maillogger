@@ -3,8 +3,10 @@
 import socketserver
 import os
 import datetime
+import get_handler
 
-CONFIG_FILE = '/home/ginkooo/.config/maillogger/maillogger.conf'
+CONFIG_FILE = '/home/pczajka/.config/maillogger/maillogger.conf'
+
 
 def get_config():
     ret = {}
@@ -24,6 +26,7 @@ def get_config():
             ret[key] = value.strip().strip("\"'")
     return ret
 
+
 config = get_config()
 print(config)
 
@@ -33,33 +36,37 @@ except:
     print('You have to provide logdir config')
     exit()
 if not os.path.isdir(logdir):
-    print('Bad logdir path')
+    print('logdir like that does not exist')
     exit()
 os.chdir(logdir)
+
 
 def handle_msg(msg, ip):
     if type(ip) == 'bytes':
         ip = ip.decode('utf-8')
+    if msg == 'GET':
+        return get_handler.get_logs(logdir)
     now = datetime.datetime.now()
     filename = now.strftime('%Y-%m-%d') + '.log'
-    to_write = now.strftime('%H:%M') + ' ' + ip + ' ' + msg + '\n'
-    try:
-        with open(filename, 'a') as f:
-            f.write(to_write)
-    except:
-        print('Cound not write to file')
-        response = 'ERR Could not write to file'
+    msg = msg.replace(';', ':')
+    to_write = now.strftime('%H:%M') + ';' + ip + ';' + msg + '\n'
+    with open(filename, 'a') as f:
+        f.write(to_write)
+    print('Wrote: ' + to_write)
     response = 'OK'
     return response + '\r\n'
 
 
 class ConnectionHandler(socketserver.BaseRequestHandler):
+
     def handle(self):
         self.data = self.request.recv(2048).strip()
         try:
-            response = handle_msg(self.data.decode('utf-8'), self.client_address[0])
+            response = handle_msg(self.data.decode('utf-8'),
+                                  self.client_address[0])
         except:
-            response = handle_msg(self.data.decode('ascii'), self.client_address[0])
+            response = handle_msg(self.data.decode('ascii'),
+                                  self.client_address[0])
         try:
             self.request.sendall(response)
         except:
@@ -68,12 +75,13 @@ class ConnectionHandler(socketserver.BaseRequestHandler):
             except:
                 self.request.sendall(response.encode('ascii'))
 
+
 if __name__ == '__main__':
     try:
         host, port = config['host'], config['port']
     except:
         print('You have to provide host and port in your config file')
         exit()
+    socketserver.TCPServer.allow_reuse_address = True
     server = socketserver.TCPServer((host, int(port)), ConnectionHandler)
-    server.allow_reuse_address = True
     server.serve_forever()
