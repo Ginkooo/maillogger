@@ -1,11 +1,15 @@
-import os
+from os import path, chdir
+try:
+    from os import scandir
+except ImportError:
+    import scandir
 
 
 def get_logs(logdir):
-    currdir = os.path.abspath(os.path.curdir)
-    os.chdir(logdir)
+    currdir = path.abspath(path.curdir)
+    chdir(logdir)
     ret = ''
-    files = os.scandir()
+    files = scandir()
     for direntry in files:
         try:
             year, month, day = direntry.name.split('-')
@@ -16,5 +20,5 @@ def get_logs(logdir):
                 time, ip, msg = line.strip().split(';')
                 ret += direntry.name + ';' + time + ';' + ip +\
                     ';' + msg + '\r\n'
-    os.chdir(currdir)
+    chdir(currdir)
     return ret
