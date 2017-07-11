@@ -2,7 +2,7 @@ from os import path, chdir
 try:
     from os import scandir
 except ImportError:
-    import scandir
+    from scandir import scandir
 
 
 def get_logs(logdir):
